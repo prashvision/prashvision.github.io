@@ -1,54 +1,90 @@
-
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Prashvision Art Gallery</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #0a0a0a;
-            color: #fff;
-            text-align: center;
-        }
-        header {
-            padding: 2rem 1rem;
-            font-size: 2rem;
-            font-family: 'Cursive', sans-serif;
-        }
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            padding: 1rem;
-        }
-        .gallery img {
-            width: 100%;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
-            transition: transform 0.3s ease;
-        }
-        .gallery img:hover {
-            transform: scale(1.05);
-        }
-        footer {
-            margin-top: 2rem;
-            padding: 1rem;
-            font-size: 0.9rem;
-            color: #aaa;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrashVision</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background-color: #f4f4f4; }
+    header { background: linear-gradient(to right, #1e3c72, #2a5298); padding: 20px; color: white; text-align: center; }
+    h1 { font-family: 'Orbitron', sans-serif; font-size: 2.5em; margin: 0; }
+    nav { text-align: center; padding: 10px; background: #333; }
+    nav a { color: white; margin: 0 15px; text-decoration: none; }
+    section { padding: 40px 20px; max-width: 1000px; margin: auto; }
+    footer { background: #333; color: white; text-align: center; padding: 20px; }
+    .button { background: #2081e2; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; }
+  </style>
 </head>
 <body>
-    <header>Prashvision</header>
-    <p>Explore original artworks by Prashant</p>
-    <div class="gallery">
-        <img src="images/user_art1.jpg" alt="Art 1"/><img src="images/user_art2.jpg" alt="Art 2"/><img src="images/user_art3.jpg" alt="Art 3"/><img src="images/user_art4.jpg" alt="Art 4"/>
-    </div>
-    <footer>
-        Connect on Instagram: <a href="https://instagram.com/zero0395" style="color:#f0f;">@zero0395</a> | GitHub: prashvision
-    </footer>
+  <header>
+    <h1>PrashVision</h1>
+    <p>Digital Paintings & Artwork Showcase</p>
+  </header>  <nav>
+    <a href="#about">About</a>
+    <a href="#gallery">Gallery</a>
+    <a href="#upload">Upload</a>
+    <a href="#nfts">NFTs</a>
+    <a href="#contact">Contact</a>
+  </nav>  <section id="about">
+    <h2>About Me</h2>
+    <p>I am a digital artist creating detailed paintings and visual stories. Explore my creativity through PrashVision.</p>
+  </section>  <section id="gallery">
+    <h2>Gallery</h2>
+    <p>Here I’ll showcase selected artworks uploaded through the platform.</p>
+  </section>  <section id="upload">
+    <h2>Upload Your Artwork</h2>
+    <form action="upload.php" method="POST" enctype="multipart/form-data">
+      <input type="text" name="title" placeholder="Artwork Title" required><br><br>
+      <textarea name="description" placeholder="Artwork Description" required></textarea><br><br>
+      <input type="file" name="image" accept="image/*" required><br><br>
+      <button type="submit">Upload</button>
+    </form>
+  </section>  <!-- NFT Gallery Section Inserted -->  <section id="nfts" style="padding: 40px; background: #f9f9f9;">
+    <h2 style="text-align: center; font-family: 'Segoe UI', sans-serif; font-size: 2em;">My NFT Collection on OpenSea</h2>
+    <div id="nft-gallery" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 30px;"></div><script>
+  async function loadNFTs() {
+    const account = "0x8b5bC5ea70c8f48598029783BdC980fB96778cd4";
+    const url = `https://api.opensea.io/api/v1/assets?owner=${account}&order_direction=desc&limit=12&include_orders=false`;
+
+    try {
+      const response = await fetch(url, {
+        headers: { "Accept": "application/json" }
+      });
+      const data = await response.json();
+
+      const gallery = document.getElementById("nft-gallery");
+
+      data.assets.forEach(nft => {
+        const card = document.createElement("div");
+        card.style.cssText = "width: 220px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden;";
+
+        card.innerHTML = `
+          <img src="${nft.image_url}" alt="NFT Image" style="width: 100%; height: 200px; object-fit: cover;">
+          <div style="padding: 10px;">
+            <h3 style="font-size: 1em; margin: 0;">${nft.name || "Unnamed NFT"}</h3>
+            <a href="${nft.permalink}" target="_blank" style="color: #2081e2; text-decoration: none;">View on OpenSea</a>
+          </div>
+        `;
+
+        gallery.appendChild(card);
+      });
+
+    } catch (error) {
+      console.error("Error loading NFTs:", error);
+      document.getElementById("nft-gallery").innerHTML = "<p>Unable to load NFTs from OpenSea.</p>";
+    }
+  }
+
+  loadNFTs();
+</script>
+
+  </section>  <section id="contact">
+    <h2>Contact</h2>
+    <p>Email: <a href="mailto:dwivediprashant140@gmail.com">dwivediprashant140@gmail.com</a></p>
+    <p>Instagram: <a href="https://instagram.com/Zero0395" target="_blank">@Zero0395</a></p>
+    <p>OpenSea: <a href="https://opensea.io/pras0748" target="_blank">View my NFTs on OpenSea</a></p>
+  </section>  <footer>
+    <p>© 2025 PrashVision. All Rights Reserved.</p>
+  </footer>
 </body>
 </html>
