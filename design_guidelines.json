@@ -1,0 +1,79 @@
+{
+  "app_name": "DivyaLive Phase 1",
+  "tagline": "Bhakti jo screen par jeevant lage.",
+  "app_concept": "Premium devotional live wallpaper application focused on Indian deities, spiritual environments and beautiful animated wallpapers with backend-driven dynamic content and a secure responsive web Admin Panel.",
+  "typography": {
+    "headings": {
+      "font_family": "Playfair Display, Serif",
+      "weights": ["600", "700"],
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "font_family": "Plus Jakarta Sans, sans-serif",
+      "weights": ["400", "500", "600"]
+    },
+    "devanagari": {
+      "font_family": "Noto Sans Devanagari, sans-serif",
+      "usage": "For Hindi spiritual quotes and Aaj Ka Darshan headers"
+    }
+  },
+  "colors": {
+    "archetype": "LUXURY & SPIRITUAL DEVOTIONAL",
+    "background_dark": "#0B0C10",
+    "surface_dark": "#151821",
+    "surface_elevated": "#1E2230",
+    "primary_gold": "#D4AF37",
+    "primary_gold_hover": "#E5C158",
+    "saffron_accent": "#FF9933",
+    "saffron_glow": "rgba(255, 153, 51, 0.15)",
+    "text_primary": "#F3F4F6",
+    "text_secondary": "#9CA3AF",
+    "border_subtle": "rgba(212, 175, 55, 0.2)",
+    "forbidden_color": "#7351B7"
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-[#151821]/80 border border-[rgba(212,175,55,0.2)] shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+    "glow_effects": "drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]",
+    "rounded_cards": "rounded-2xl"
+  },
+  "grids_and_layouts": {
+    "mobile_shell": "Max-width wrapper simulating an immersive Android device view with device bezels and toggleable responsive web admin view",
+    "bento_grid": "Used for featured daily darshan, live wallpaper categories, and trending devotinal art",
+    "admin_dashboard": "Sidebar layout with overview cards, rich data tables, CRUD modals, and secure JWT verification"
+  },
+  "navigation_structure": {
+    "mobile_bottom_nav": ["Home", "Categories", "Daily Darshan", "Favorites", "Profile"],
+    "admin_sidebar": ["Dashboard", "Wallpapers CRUD", "Categories", "Festivals", "Daily Darshan", "Settings"]
+  },
+  "motion_and_interactions": {
+    "transitions": "transition-all duration-300 ease-in-out",
+    "hover_effects": "hover:scale-[1.02] hover:border-[#D4AF37] transition-transform",
+    "framer_motion": "Used for smooth screen switching and staggered card entrance animations"
+  },
+  "image_urls": [
+    {
+      "category": "Shiva Wallpapers",
+      "url": "https://images.unsplash.com/photo-1609609830354-8f615d61b9c8",
+      "description": "Adiyogi Shiva statue against dramatic sky"
+    },
+    {
+      "category": "Ganesha Wallpapers",
+      "url": "https://images.unsplash.com/photo-1759674887852-8fc95df7490e",
+      "description": "Ganesha statue adorned with garlands on ornate throne"
+    },
+    {
+      "category": "Krishna Wallpapers",
+      "url": "https://images.unsplash.com/photo-1660280037297-a3b5e79a3d20",
+      "description": "Divine Radha Krishna temple celebration"
+    },
+    {
+      "category": "Spiritual Environment",
+      "url": "https://images.unsplash.com/photo-1653282767171-c889318ce51c",
+      "description": "Meditative deity statue during sunset glow"
+    }
+  ],
+  "accessibility": {
+    "contrast_ratio": "Meets WCAG AA standards for dark background with gold (#D4AF37) and white text",
+    "data_testids": "Mandatory data-testid attributes on all interactive elements, tabs, buttons, and form inputs"
+  }
+}
