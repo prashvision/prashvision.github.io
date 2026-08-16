@@ -1,12 +1,14 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from fastapi.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Any
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-import os, uuid, jwt, bcrypt, logging, base64
+import os, uuid, jwt, bcrypt, logging, base64, requests
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -18,6 +20,44 @@ SECRET = os.environ.get("JWT_SECRET", "divyalive-phase1-secret-change-me")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@divyalive.app")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "DivyaLive@2026")
 
+# --- Emergent Object Storage (managed) ---
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "divyalive"
+_storage_key = None
+
+def _init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+def _put_object(path, data, content_type):
+    global _storage_key
+    key = _init_storage()
+    resp = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    if resp.status_code == 503:
+        _storage_key = None
+        key = _init_storage()
+        resp = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key, "Content-Type": content_type}, data=data, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+def _get_object(path):
+    global _storage_key
+    key = _init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 503:
+        _storage_key = None
+        key = _init_storage()
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
 class CategoryIn(BaseModel):
     name: str; icon: str = "flare"; sortOrder: int = 0; enabled: bool = True
 class WallpaperIn(BaseModel):
@@ -26,12 +66,18 @@ class WallpaperIn(BaseModel):
     type: str = "still"; resolution: str = "1080 × 1920"; fileSize: str = "Demo asset"
     animationType: str = "Still"; isPremium: bool = False; isFeatured: bool = False
     isPublished: bool = True; sortOrder: int = 0
+    thumbnailPath: str = ""; previewPath: str = ""; wallpaperPath: str = ""
+    isLive: bool = False; animationPreset: str = "none"
+    animationConfig: dict = Field(default_factory=dict); qualityDefault: str = "balanced"
 class FestivalIn(BaseModel):
     name: str; startDate: str; endDate: str; banner: str = ""; description: str = ""; featuredWallpaper: str = ""
 class DarshanIn(BaseModel):
     date: str; wallpaperId: str; deity: str; quote: str; featured: bool = True
 class AdminLogin(BaseModel):
     email: EmailStr; password: str
+
+ALLOWED_UPLOADS = {"image/jpeg", "image/png", "image/webp", "video/mp4"}
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 def clean(doc):
     if not doc: return None
@@ -67,9 +113,39 @@ async def seed():
         await db.daily_darshan.insert_one({"id":str(uuid.uuid4()),"date":datetime.now(timezone.utc).date().isoformat(),"wallpaperId":hero["id"],"deity":"महादेव","quote":"शिव में शांति, शिव में शक्ति।","featured":True})
     if await db.admins.count_documents({}) == 0:
         await db.admins.insert_one({"email":ADMIN_EMAIL,"passwordHash":bcrypt.hashpw(ADMIN_PASSWORD.encode(),bcrypt.gensalt()).decode(),"role":"admin"})
+    # Phase 2 backfill: ensure Jeevant Darshan (live wallpaper) metadata exists on every wallpaper.
+    preset_by_deity = {"Mahadev": "clouds", "Krishna": "petals", "Ganesh Ji": "particles", "Temple": "lightRays"}
+    async for w in db.wallpapers.find({"isLive": {"$exists": False}}):
+        is_feat = w.get("isFeatured", False)
+        preset = preset_by_deity.get(w.get("deity", ""), "none")
+        live = bool(is_feat and preset != "none")
+        await db.wallpapers.update_one({"id": w["id"]}, {"$set": {"isLive": live, "animationPreset": preset if live else "none", "animationConfig": {}, "qualityDefault": "balanced", "type": "live" if live else w.get("type", "still")}})
+    # Idempotently ensure the four Jeevant Darshan demo presets always have a live asset.
+    _base = Path("/app/frontend/assets/devotional")
+    def _demo_asset(nm):
+        p = _base / f"{nm}.jpg"
+        return "data:image/jpeg;base64," + base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
+    featured_specs = [
+        ("Mahadev • Himalaya", "Mahadev", "Mahadev", "mahadev", "clouds"),
+        ("Krishna • Yamuna Glow", "Krishna", "Shri Krishna", "krishna", "petals"),
+        ("Ganesh Ji • Shubh Aarambh", "Ganesh Ji", "Ganesh Ji", "ganesha", "particles"),
+        ("Temple • Pratah Darshan", "Temple", "Temple", "temple", "lightRays"),
+    ]
+    for title, deity, cat, asset_name, preset in featured_specs:
+        now = datetime.now(timezone.utc).isoformat(); img = _demo_asset(asset_name)
+        await db.wallpapers.update_one(
+            {"name": title},
+            {"$set": {"isLive": True, "animationPreset": preset, "animationConfig": {}, "qualityDefault": "balanced", "type": "live", "isFeatured": True, "isPublished": True, "deity": deity, "category": cat},
+             "$setOnInsert": {"id": str(uuid.uuid4()), "description": "A licensed-safe DivyaLive demo artwork.", "tags": [deity, "meditation", "demo"], "thumbnailUrl": img, "previewUrl": img, "wallpaperUrl": img, "resolution": "1080 × 1920", "fileSize": "Demo asset", "animationType": "Still", "isPremium": False, "createdAt": now, "updatedAt": now, "sortOrder": 0}},
+            upsert=True)
 
 @app.on_event("startup")
-async def startup(): await seed()
+async def startup():
+    await seed()
+    try:
+        await run_in_threadpool(_init_storage)
+    except Exception as e:
+        logging.warning(f"Storage init deferred: {e}")
 @api.get("/health")
 async def health(): return {"status":"ok","service":"divyalive"}
 @api.get("/categories")
@@ -98,6 +174,34 @@ async def dashboard(_: Any=Depends(admin_guard)):
     return {"users":await db.users.count_documents({}),"wallpapers":await db.wallpapers.count_documents({}),"categories":await db.categories.count_documents({}),"published":await db.wallpapers.count_documents({"isPublished":True}),"drafts":await db.wallpapers.count_documents({"isPublished":False}),"popular":[]}
 @api.get("/admin/wallpapers")
 async def admin_wallpapers(_: Any=Depends(admin_guard)): return [clean(x) async for x in db.wallpapers.find({},{"_id":0}).sort("createdAt",-1).limit(100)]
+EXT_MAP = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4"}
+
+@api.post("/admin/uploads")
+async def upload_asset(file: UploadFile = File(...), _: Any=Depends(admin_guard)):
+    if file.content_type not in ALLOWED_UPLOADS: raise HTTPException(415, "Unsupported file type. Use JPG, PNG, WEBP, or MP4.")
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES: raise HTTPException(413, "File exceeds the 25 MB upload limit.")
+    if not EMERGENT_KEY: raise HTTPException(503, "Object storage is not configured.")
+    ext = EXT_MAP.get(file.content_type, "bin")
+    path = f"{APP_NAME}/uploads/{uuid.uuid4()}.{ext}"
+    try:
+        await run_in_threadpool(_put_object, path, data, file.content_type)
+    except requests.HTTPError as e:
+        code = e.response.status_code if e.response is not None else 500
+        if code == 402: raise HTTPException(402, "Storage quota exceeded. Add credits to continue uploading.")
+        raise HTTPException(502, "Upload failed. Please try again.")
+    await db.uploads.insert_one({"id": str(uuid.uuid4()), "path": path, "contentType": file.content_type, "size": len(data), "createdAt": datetime.now(timezone.utc).isoformat()})
+    return {"url": f"/api/files/{path}", "path": path, "contentType": file.content_type, "size": len(data)}
+
+@api.get("/files/{path:path}")
+async def serve_file(path: str):
+    doc = await db.uploads.find_one({"path": path})
+    if not doc: raise HTTPException(404, "File not found")
+    try:
+        content, ctype = await run_in_threadpool(_get_object, path)
+    except requests.HTTPError:
+        raise HTTPException(404, "File not found")
+    return Response(content=content, media_type=ctype, headers={"Cache-Control": "public, max-age=31536000, immutable"})
 @api.post("/admin/wallpapers")
 async def add_wallpaper(body: WallpaperIn, _: Any=Depends(admin_guard)):
     now=datetime.now(timezone.utc).isoformat(); item=body.model_dump()|{"id":str(uuid.uuid4()),"createdAt":now,"updatedAt":now}; await db.wallpapers.insert_one(item); return clean(item)
@@ -108,6 +212,11 @@ async def edit_wallpaper(item_id: str, body: WallpaperIn, _: Any=Depends(admin_g
     return {"id":item_id,**item}
 @api.delete("/admin/wallpapers/{item_id}")
 async def delete_wallpaper(item_id: str, _: Any=Depends(admin_guard)): await db.wallpapers.delete_one({"id":item_id}); return {"ok":True}
+@api.patch("/admin/wallpapers/{item_id}/publish")
+async def publish_wallpaper(item_id: str, published: bool, _: Any=Depends(admin_guard)):
+    result=await db.wallpapers.update_one({"id":item_id},{"$set":{"isPublished":published,"updatedAt":datetime.now(timezone.utc).isoformat()}})
+    if not result.matched_count: raise HTTPException(404,"Wallpaper not found")
+    return {"id":item_id,"isPublished":published}
 @api.get("/admin/categories")
 async def admin_categories(_: Any=Depends(admin_guard)): return [clean(x) async for x in db.categories.find({},{"_id":0}).sort("sortOrder",1)]
 @api.post("/admin/categories")
@@ -117,8 +226,20 @@ async def add_category(body: CategoryIn, _: Any=Depends(admin_guard)):
 async def edit_category(item_id: str, body: CategoryIn, _: Any=Depends(admin_guard)): await db.categories.update_one({"id":item_id},{"$set":body.model_dump()}); return {"id":item_id,**body.model_dump()}
 @api.delete("/admin/categories/{item_id}")
 async def delete_category(item_id: str, _: Any=Depends(admin_guard)): await db.categories.delete_one({"id":item_id}); return {"ok":True}
+@api.get("/admin/daily-darshan")
+async def admin_darshan(_: Any=Depends(admin_guard)): return [clean(x) async for x in db.daily_darshan.find({}, {"_id":0}).sort("date",-1).limit(100)]
+@api.put("/admin/daily-darshan/{item_id}")
+async def edit_darshan(item_id: str, body: DarshanIn, _: Any=Depends(admin_guard)): await db.daily_darshan.update_one({"id":item_id},{"$set":body.model_dump()}); return {"id":item_id,**body.model_dump()}
+@api.delete("/admin/daily-darshan/{item_id}")
+async def delete_darshan(item_id: str, _: Any=Depends(admin_guard)): await db.daily_darshan.delete_one({"id":item_id}); return {"ok":True}
 @api.post("/admin/festivals")
 async def add_festival(body: FestivalIn, _: Any=Depends(admin_guard)): item=body.model_dump()|{"id":str(uuid.uuid4())}; await db.festivals.insert_one(item); return clean(item)
+@api.get("/admin/festivals")
+async def admin_festivals(_: Any=Depends(admin_guard)): return [clean(x) async for x in db.festivals.find({}, {"_id":0}).sort("startDate",-1).limit(100)]
+@api.put("/admin/festivals/{item_id}")
+async def edit_festival(item_id: str, body: FestivalIn, _: Any=Depends(admin_guard)): await db.festivals.update_one({"id":item_id},{"$set":body.model_dump()}); return {"id":item_id,**body.model_dump()}
+@api.delete("/admin/festivals/{item_id}")
+async def delete_festival(item_id: str, _: Any=Depends(admin_guard)): await db.festivals.delete_one({"id":item_id}); return {"ok":True}
 @api.post("/admin/daily-darshan")
 async def add_darshan(body: DarshanIn, _: Any=Depends(admin_guard)): item=body.model_dump()|{"id":str(uuid.uuid4())}; await db.daily_darshan.insert_one(item); return clean(item)
 app.include_router(api)

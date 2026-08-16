@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 3 covered the P0 upload-503 bug fix (Emergent Object Storage) and Phase 2 Jeevant Darshan live-wallpaper engine. Backend: 14/15 pytest cases passed; upload now returns 200 with a real object-storage URL, /api/files/{path} serves the same bytes back, uploaded URLs can be attached to wallpapers and appear on the public feed with Phase 2 metadata (isLive/animationPreset/animationConfig/qualityDefault/type). Frontend: all requested testIDs render on the external EXPO_PUBLIC_BACKEND_URL — LIVE/STATIC badges (11 live, 12 static), Jeevant Darshan · Live section, detail-preview, detail-apply honest sheet (does NOT claim success, correctly says Phase 2 native build needed), live-preview-screen + live-preview-apply, Settings modal with quality-high/balanced/saver + toggle-animations/particles, and full Admin Studio (admin-email/password/login, upload-asset, toggle-live/featured/published, create-wallpaper). Preset chips (preset-clouds/petals/particles/lightRays) render conditionally only when 'toggle-live' is ON — correct. One data issue: the featured Temple demo wallpaper is missing from Mongo so 3 of 4 expected featured live wallpapers exist; Mahadev(clouds)/Krishna(petals)/Ganesh Ji(particles) are correct.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/wallpapers", "issue": "Featured Temple wallpaper (isFeatured=true, animationPreset='lightRays') is missing from the database. Only a non-featured 'Temple • Pratah Darshan 2' remains, so the lightRays preset has no live demo asset. Likely deleted during a prior test cycle; seed() only inserts when the collection is empty so it won't self-heal. Reinsert the featured Temple row or add an idempotent Phase 2 backfill."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "web preview", "issues": ["React-Native-Web deprecation warnings in console: 'props.pointerEvents is deprecated. Use style.pointerEvents' and '\"shadow*\" style props are deprecated. Use \"boxShadow\"'. Cosmetic only, does not affect Android native build."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_upload_and_live.py",
+    "/app/backend/tests/test_divyalive_api.py",
+    "/app/backend/tests/test_phase1_admin_crud.py",
+    "/app/test_reports/pytest/phase2_iteration3.xml",
+    "/app/test_reports/screenshots_iteration2/home.jpeg",
+    "/app/test_reports/screenshots_iteration2/detail.jpeg",
+    "/app/test_reports/screenshots_iteration2/apply_sheet.jpeg",
+    "/app/test_reports/screenshots_iteration2/live_preview.jpeg",
+    "/app/test_reports/screenshots_iteration2/settings.jpeg",
+    "/app/test_reports/screenshots_iteration2/admin_login.jpeg",
+    "/app/test_reports/screenshots_iteration2/profile.jpeg"
+  ],
+  "action_items": [
+    "Reinsert the featured 'Temple • Pratah Darshan' wallpaper (isFeatured=true, isLive=true, animationPreset='lightRays') so all four featured Phase 2 live presets have a demo asset. Consider making seed() idempotent per-row (upsert by name) instead of gating on collection count.",
+    "Optional: silence RN-Web deprecation warnings by migrating `pointerEvents` and `shadow*` styles in components (LinearGradient/Modal callers) — non-blocking."
+  ],
+  "critical_code_review_comments": [
+    "Upload path is properly wired to Emergent Object Storage with lazy init + 503 re-init retry, 415 mime guard, 25MB size guard, and /api/files/{path} public read-through. Good.",
+    "Phase 2 backfill loop in seed() only patches docs missing `isLive`; safe for existing rows but cannot recreate deleted seed rows (see Temple issue).",
+    "server.py is 228 lines but very dense (multi-statement lines). Not a functional issue; slightly harder to review. Consider splitting admin router into a module in a later refactor.",
+    "Admin studio 'apply' flow is intentionally honest (does not claim success) — matches the requested Phase 2 native-build contract."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase2_upload_and_live.py",
+    "/app/test_reports/iteration_3.json"
+  ],
+  "success_rate": {"backend": "93% (14/15 pytest cases, single failure is missing seed row, not a code defect)", "frontend": "100% of requested testIDs verified"},
+  "seed_data_creation": "Test uploaded a 1x1 PNG to Emergent Object Storage and created TEST_phase2_upload_wallpaper referencing the returned /api/files/... URL; the test then deleted the wallpaper via DELETE /api/admin/wallpapers/{id}. The uploaded object itself remains in Emergent Object Storage (no delete API used).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL: EXPO_PUBLIC_BACKEND_URL (https://deity-live-launch.preview.emergentagent.com). Admin creds in /app/memory/test_credentials.md. The upload 503 bug is RESOLVED — do not regress. Preset chips in AdminStudio only render when toggle-live is ON; test by first flipping toggle-live then asserting preset-clouds/petals/particles/lightRays. Phase 2 native Android WallpaperService (plugins/withWallpaperService.js) cannot be exercised in Expo Go / web preview — do not fail on that.",
+  "rca_of_issue": "P0 upload 503 bug: root cause was that /api/admin/uploads had no cloud target; fix now calls Emergent Object Storage via POST {STORAGE_URL}/init to fetch a storage_key (cached in module scope) and PUT /objects/{path} for the actual bytes, with automatic re-init on 503. Verified: multipart PNG upload returns 200 with {url:'/api/files/divyalive/uploads/<uuid>.png', path, contentType:'image/png', size}; GET /api/files/... returns byte-identical response with matching Content-Type. Bad mime (text/plain) is rejected with 415 as required. Missing-featured-Temple issue is a stale-data problem, not the upload bug."
+}
