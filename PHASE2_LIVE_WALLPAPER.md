@@ -13,8 +13,11 @@ This plugin runs only during `expo prebuild` / an EAS build — it has no effect
 
 ### How to test "Apply as Live Wallpaper" on a device
 1. Click **Publish** (top-right) to deploy, then generate an **Android build** from the deployment panel.
-2. Install the build on a real Android device.
-3. Open a Jeevant Darshan wallpaper → the native service is registered under Settings → Wallpaper → Live Wallpapers → "DivyaLive · Jeevant Darshan".
+2. Install the build (APK/AAB) on a real Android device.
+3. Open any wallpaper → tap **Apply Wallpaper**. On the real build a **"Open Live Wallpaper Picker"** button appears (it is hidden in Expo Go/web). Tapping it opens the Android system Live Wallpaper list.
+4. Choose **"DivyaLive · Jeevant Darshan"** → Set wallpaper. It now runs on your home screen.
+
+Under the hood the app launches the Android `LIVE_WALLPAPER_CHOOSER` intent (via `expo-intent-launcher`), and the service is registered by `plugins/withWallpaperService.js` at prebuild.
 
 The Kotlin baseline (`DivyaLiveWallpaperService.kt`, generated at build time) draws the DivyaLive
 canvas + a golden particle field and pauses when not visible (battery-aware). It is the hook point
