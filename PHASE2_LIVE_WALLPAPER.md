@@ -2,7 +2,15 @@
 
 ## What works right now (Expo Go / web preview)
 - Real image uploads in Admin (Emergent Object Storage) → published wallpapers appear instantly in the app, no code change.
-- In-app **Live Preview** with a real animation engine (11 presets: clouds, rain, snow, petals, fire, smoke, water, lightRays, particles, stars, diya).
+- In-app **Live Preview** with a real, reusable animation engine — 7 curated scene presets, each composed of layered particle + light effects:
+  - **Peaceful** (soft drifting light motes, warm tint)
+  - **Temple** (diya glow + rising golden embers + light rays)
+  - **Himalayan** (drifting clouds + light snow + cool tint)
+  - **Rain** (falling rain streaks)
+  - **River** (water shimmer bands + floating motes)
+  - **Divine Glow** (sweeping light rays + golden particles)
+  - **Night** (twinkling stars + drifting motes + night tint)
+- Per-wallpaper **effect intensity** (Low / Medium / High) stored in `animationConfig.intensity`, combined with the global battery quality.
 - LIVE / STATIC badges, "Jeevant Darshan · Live" home section.
 - Settings: quality (High / Balanced / Battery Saver) + Animations/Particles toggles. Smart-battery pauses animation when app is backgrounded.
 

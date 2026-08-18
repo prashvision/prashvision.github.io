@@ -32,6 +32,7 @@ Premium, content-driven devotional wallpaper app (Indian deities) with a respons
 ## Implementation log
 - 2026-02-14: Phase 1 backend, seed content, mobile UI, admin portal.
 - 2026-06 (this session): Object Storage uploads + Phase 2 Jeevant Darshan live engine, settings, badges, native config plugin.
+- 2026-06 (Phase 2 presets): Reworked the engine into 7 curated scene presets (peaceful, temple, himalayan, rain, river, divineGlow, night) composed of layered particle/light effects; added per-wallpaper effect intensity (low/medium/high) in `animationConfig`; remapped demo data (Mahadev→himalayan, Krishna→river, Ganesh→divineGlow, Temple→temple); added admin preset + intensity controls; wired real Apply via Android LIVE_WALLPAPER_CHOOSER (expo-intent-launcher) shown only on native builds. Verified: 18/18 backend + full frontend regression.
 
 ## Native build note
 "Apply as Live Wallpaper" and the Kotlin `DivyaLiveWallpaperService` only work in an Android development/production build (via Publish → build), NEVER in Expo Go. The in-app Live Preview fully works in Expo Go/web.

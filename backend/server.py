@@ -114,7 +114,7 @@ async def seed():
     if await db.admins.count_documents({}) == 0:
         await db.admins.insert_one({"email":ADMIN_EMAIL,"passwordHash":bcrypt.hashpw(ADMIN_PASSWORD.encode(),bcrypt.gensalt()).decode(),"role":"admin"})
     # Phase 2 backfill: ensure Jeevant Darshan (live wallpaper) metadata exists on every wallpaper.
-    preset_by_deity = {"Mahadev": "clouds", "Krishna": "petals", "Ganesh Ji": "particles", "Temple": "lightRays"}
+    preset_by_deity = {"Mahadev": "himalayan", "Krishna": "river", "Ganesh Ji": "divineGlow", "Temple": "temple"}
     async for w in db.wallpapers.find({"isLive": {"$exists": False}}):
         is_feat = w.get("isFeatured", False)
         preset = preset_by_deity.get(w.get("deity", ""), "none")
@@ -126,16 +126,16 @@ async def seed():
         p = _base / f"{nm}.jpg"
         return "data:image/jpeg;base64," + base64.b64encode(p.read_bytes()).decode() if p.exists() else ""
     featured_specs = [
-        ("Mahadev • Himalaya", "Mahadev", "Mahadev", "mahadev", "clouds"),
-        ("Krishna • Yamuna Glow", "Krishna", "Shri Krishna", "krishna", "petals"),
-        ("Ganesh Ji • Shubh Aarambh", "Ganesh Ji", "Ganesh Ji", "ganesha", "particles"),
-        ("Temple • Pratah Darshan", "Temple", "Temple", "temple", "lightRays"),
+        ("Mahadev • Himalaya", "Mahadev", "Mahadev", "mahadev", "himalayan"),
+        ("Krishna • Yamuna Glow", "Krishna", "Shri Krishna", "krishna", "river"),
+        ("Ganesh Ji • Shubh Aarambh", "Ganesh Ji", "Ganesh Ji", "ganesha", "divineGlow"),
+        ("Temple • Pratah Darshan", "Temple", "Temple", "temple", "temple"),
     ]
     for title, deity, cat, asset_name, preset in featured_specs:
         now = datetime.now(timezone.utc).isoformat(); img = _demo_asset(asset_name)
         await db.wallpapers.update_one(
             {"name": title},
-            {"$set": {"isLive": True, "animationPreset": preset, "animationConfig": {}, "qualityDefault": "balanced", "type": "live", "isFeatured": True, "isPublished": True, "deity": deity, "category": cat},
+            {"$set": {"isLive": True, "animationPreset": preset, "animationConfig": {"intensity": "medium"}, "qualityDefault": "balanced", "type": "live", "isFeatured": True, "isPublished": True, "deity": deity, "category": cat},
              "$setOnInsert": {"id": str(uuid.uuid4()), "description": "A licensed-safe DivyaLive demo artwork.", "tags": [deity, "meditation", "demo"], "thumbnailUrl": img, "previewUrl": img, "wallpaperUrl": img, "resolution": "1080 × 1920", "fileSize": "Demo asset", "animationType": "Still", "isPremium": False, "createdAt": now, "updatedAt": now, "sortOrder": 0}},
             upsert=True)
 

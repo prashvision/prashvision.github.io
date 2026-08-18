@@ -16,31 +16,25 @@ import type { Quality } from "@/src/lib/settings";
 
 export type Preset =
   | "none"
-  | "clouds"
+  | "peaceful"
+  | "temple"
+  | "himalayan"
   | "rain"
-  | "snow"
-  | "petals"
-  | "fire"
-  | "smoke"
-  | "water"
-  | "lightRays"
-  | "particles"
-  | "stars"
-  | "diya";
+  | "river"
+  | "divineGlow"
+  | "night";
+
+export type Intensity = "low" | "medium" | "high";
 
 export const PRESET_META: { key: Preset; label: string; icon: string }[] = [
   { key: "none", label: "None (Static)", icon: "remove-circle-outline" },
-  { key: "clouds", label: "Clouds", icon: "cloud-outline" },
+  { key: "peaceful", label: "Peaceful", icon: "leaf-outline" },
+  { key: "temple", label: "Temple", icon: "bonfire-outline" },
+  { key: "himalayan", label: "Himalayan", icon: "snow-outline" },
   { key: "rain", label: "Rain", icon: "rainy-outline" },
-  { key: "snow", label: "Snow", icon: "snow-outline" },
-  { key: "petals", label: "Flower Petals", icon: "flower-outline" },
-  { key: "fire", label: "Fire", icon: "flame-outline" },
-  { key: "smoke", label: "Smoke", icon: "cloudy-outline" },
-  { key: "water", label: "Water", icon: "water-outline" },
-  { key: "lightRays", label: "Light Rays", icon: "sunny-outline" },
-  { key: "particles", label: "Particles", icon: "sparkles-outline" },
-  { key: "stars", label: "Stars", icon: "star-outline" },
-  { key: "diya", label: "Diya Glow", icon: "bonfire-outline" },
+  { key: "river", label: "River", icon: "water-outline" },
+  { key: "divineGlow", label: "Divine Glow", icon: "sunny-outline" },
+  { key: "night", label: "Night", icon: "moon-outline" },
 ];
 
 type Kind = "cloud" | "line" | "dot" | "petal" | "glow" | "star" | "ember" | "smoke" | "none";
@@ -58,20 +52,34 @@ type ParticleCfg = {
   glow?: boolean;
 };
 
-const CFG: Record<Preset, ParticleCfg> = {
-  none: { kind: "none", dir: "none", count: 0, color: "#fff", size: [0, 0], dur: [1, 1], drift: 0 },
-  clouds: { kind: "cloud", dir: "x", count: 6, color: "rgba(240,244,255,0.16)", size: [110, 210], dur: [22000, 40000], drift: 0 },
+type OverlayType = "rays" | "diyaGlow" | "waterBands" | "coolTint" | "warmTint" | "nightTint";
+type Scene = { particles: ParticleCfg[]; overlays: OverlayType[] };
+
+// Reusable base particle layers, composed into named scenes below.
+const L: Record<string, ParticleCfg> = {
+  cloud: { kind: "cloud", dir: "x", count: 6, color: "rgba(240,244,255,0.16)", size: [110, 210], dur: [22000, 40000], drift: 0 },
+  snow: { kind: "dot", dir: "y", count: 40, color: "rgba(255,255,255,0.9)", size: [3, 7], dur: [6000, 12000], drift: 30 },
   rain: { kind: "line", dir: "y", count: 80, color: "rgba(190,205,255,0.5)", size: [12, 24], dur: [600, 1200], drift: 6 },
-  snow: { kind: "dot", dir: "y", count: 55, color: "rgba(255,255,255,0.9)", size: [3, 7], dur: [6000, 12000], drift: 30 },
-  petals: { kind: "petal", dir: "y", count: 28, color: "#F4A6C0", size: [9, 16], dur: [5000, 9500], drift: 40, rotate: true },
-  particles: { kind: "glow", dir: "up", count: 44, color: "#FFD98A", size: [3, 8], dur: [4500, 9000], drift: 24, glow: true },
-  stars: { kind: "star", dir: "none", count: 70, color: "#FFF6D5", size: [2, 5], dur: [1400, 3400], drift: 0, glow: true },
-  fire: { kind: "ember", dir: "up", count: 30, color: "#FF7A2D", size: [3, 9], dur: [1400, 2800], drift: 18, glow: true },
-  smoke: { kind: "smoke", dir: "up", count: 16, color: "rgba(190,190,205,0.16)", size: [45, 95], dur: [6500, 12000], drift: 20 },
-  water: { kind: "none", dir: "none", count: 0, color: "#fff", size: [0, 0], dur: [1, 1], drift: 0 },
-  lightRays: { kind: "glow", dir: "up", count: 18, color: "rgba(255,224,150,0.55)", size: [2, 5], dur: [5000, 10000], drift: 10, glow: true },
-  diya: { kind: "glow", dir: "up", count: 24, color: "#FFC24D", size: [3, 7], dur: [3200, 7200], drift: 16, glow: true },
+  goldRise: { kind: "glow", dir: "up", count: 34, color: "#FFD98A", size: [3, 8], dur: [4500, 9000], drift: 24, glow: true },
+  embers: { kind: "ember", dir: "up", count: 22, color: "#FFC24D", size: [3, 7], dur: [3200, 7200], drift: 16, glow: true },
+  motes: { kind: "glow", dir: "up", count: 20, color: "rgba(255,240,200,0.7)", size: [2, 5], dur: [7000, 13000], drift: 30, glow: true },
+  ripple: { kind: "glow", dir: "x", count: 16, color: "rgba(150,200,255,0.5)", size: [4, 9], dur: [9000, 16000], drift: 0, glow: true },
+  stars: { kind: "star", dir: "none", count: 60, color: "#FFF6D5", size: [2, 5], dur: [1400, 3400], drift: 0, glow: true },
+  raysMotes: { kind: "glow", dir: "up", count: 16, color: "rgba(255,224,150,0.55)", size: [2, 5], dur: [5000, 10000], drift: 10, glow: true },
 };
+
+const SCENES: Record<Preset, Scene> = {
+  none: { particles: [], overlays: [] },
+  peaceful: { particles: [L.motes], overlays: ["warmTint"] },
+  temple: { particles: [L.embers, L.goldRise], overlays: ["diyaGlow", "rays"] },
+  himalayan: { particles: [L.cloud, L.snow], overlays: ["coolTint"] },
+  rain: { particles: [L.rain], overlays: ["coolTint"] },
+  river: { particles: [L.ripple, L.motes], overlays: ["waterBands"] },
+  divineGlow: { particles: [L.raysMotes, L.goldRise], overlays: ["rays", "warmTint"] },
+  night: { particles: [L.stars, L.motes], overlays: ["nightTint"] },
+};
+
+const INTENSITY_FACTOR: Record<Intensity, number> = { low: 0.5, medium: 1, high: 1.6 };
 
 const QUALITY_FACTOR: Record<Quality, number> = { high: 1, balanced: 0.6, saver: 0.3 };
 const SPEED_FACTOR: Record<Quality, number> = { high: 1, balanced: 1, saver: 1.4 };
@@ -209,81 +217,76 @@ function RaysOverlay({ w, h, paused }: { w: number; h: number; paused: boolean }
 
 export default function LiveEffect({
   preset,
+  intensity = "medium",
   quality = "balanced",
   particlesEnabled = true,
   animationsEnabled = true,
   paused = false,
 }: {
   preset: Preset;
+  intensity?: Intensity;
   quality?: Quality;
   particlesEnabled?: boolean;
   animationsEnabled?: boolean;
   paused?: boolean;
 }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const cfg = CFG[preset] || CFG.none;
+  const scene = SCENES[preset] || SCENES.none;
   const isPaused = paused || !animationsEnabled;
 
-  const defs = useMemo<Def[]>(() => {
-    if (!size.w || !size.h) return [];
-    const count = particlesEnabled ? Math.round(cfg.count * QUALITY_FACTOR[quality]) : 0;
+  const layers = useMemo(() => {
+    if (!size.w || !size.h) return [] as { cfg: ParticleCfg; defs: Def[] }[];
     const sf = SPEED_FACTOR[quality];
-    return Array.from({ length: count }, () => ({
-      baseX: rand(0, size.w),
-      baseY: rand(0, size.h),
-      size: rand(cfg.size[0], cfg.size[1]),
-      dur: rand(cfg.dur[0], cfg.dur[1]) * sf,
-      delay: rand(0, cfg.dur[1]),
-      drift: rand(-cfg.drift, cfg.drift),
-      rotDir: Math.random() > 0.5 ? 1 : -1,
-    }));
+    const scale = QUALITY_FACTOR[quality] * (INTENSITY_FACTOR[intensity] ?? 1);
+    return scene.particles.map((cfg) => {
+      const count = particlesEnabled ? Math.max(0, Math.round(cfg.count * scale)) : 0;
+      const defs: Def[] = Array.from({ length: count }, () => ({
+        baseX: rand(0, size.w),
+        baseY: rand(0, size.h),
+        size: rand(cfg.size[0], cfg.size[1]),
+        dur: rand(cfg.dur[0], cfg.dur[1]) * sf,
+        delay: rand(0, cfg.dur[1]),
+        drift: rand(-cfg.drift, cfg.drift),
+        rotDir: Math.random() > 0.5 ? 1 : -1,
+      }));
+      return { cfg, defs };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, quality, particlesEnabled, size.w, size.h]);
+  }, [preset, quality, intensity, particlesEnabled, size.w, size.h]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     if (Math.abs(width - size.w) > 1 || Math.abs(height - size.h) > 1) setSize({ w: width, h: height });
   };
 
-  const key = `${preset}-${quality}-${particlesEnabled}`;
+  const key = `${preset}-${quality}-${intensity}-${particlesEnabled}`;
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={onLayout}>
-      {preset === "lightRays" && size.w > 0 && <RaysOverlay w={size.w} h={size.h} paused={isPaused} />}
-      {preset === "fire" && (
-        <FlickerOverlay
-          paused={isPaused}
-          colors={["transparent", "rgba(255,90,20,0.06)", "rgba(255,120,30,0.4)"]}
-          style={{ top: "45%" }}
-        />
+      {scene.overlays.includes("coolTint") && (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(120,150,200,0.10)" }]} />
       )}
-      {preset === "diya" && (
-        <FlickerOverlay
-          paused={isPaused}
-          min={0.6}
-          colors={["transparent", "rgba(255,180,70,0.05)", "rgba(255,190,90,0.3)"]}
-          style={{ top: "55%" }}
-        />
+      {scene.overlays.includes("warmTint") && (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,180,90,0.06)" }]} />
       )}
-      {preset === "water" && (
+      {scene.overlays.includes("nightTint") && (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,20,60,0.28)" }]} />
+      )}
+      {scene.overlays.includes("rays") && size.w > 0 && <RaysOverlay w={size.w} h={size.h} paused={isPaused} />}
+      {scene.overlays.includes("diyaGlow") && (
+        <FlickerOverlay paused={isPaused} min={0.6} colors={["transparent", "rgba(255,180,70,0.05)", "rgba(255,190,90,0.32)"]} style={{ top: "55%" }} />
+      )}
+      {scene.overlays.includes("waterBands") && (
         <>
-          <FlickerOverlay
-            paused={isPaused}
-            min={0.4}
-            colors={["transparent", "rgba(60,140,220,0.08)", "rgba(40,120,210,0.35)"]}
-            style={{ top: "50%" }}
-          />
-          <FlickerOverlay
-            paused={isPaused}
-            min={0.5}
-            colors={["transparent", "transparent", "rgba(120,190,255,0.22)"]}
-            style={{ top: "65%" }}
-          />
+          <FlickerOverlay paused={isPaused} min={0.4} colors={["transparent", "rgba(60,140,220,0.08)", "rgba(40,120,210,0.35)"]} style={{ top: "50%" }} />
+          <FlickerOverlay paused={isPaused} min={0.5} colors={["transparent", "transparent", "rgba(120,190,255,0.22)"]} style={{ top: "65%" }} />
         </>
       )}
-      {defs.map((d, i) => (
-        <Particle key={`${key}-${i}`} cfg={cfg} def={d} w={size.w} h={size.h} paused={isPaused} />
-      ))}
+      {layers.map((layer, li) =>
+        layer.defs.map((d, i) => (
+          <Particle key={`${key}-${li}-${i}`} cfg={layer.cfg} def={d} w={size.w} h={size.h} paused={isPaused} />
+        )),
+      )}
     </View>
   );
 }

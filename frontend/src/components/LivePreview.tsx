@@ -24,6 +24,7 @@ type Item = {
   previewUrl?: string;
   isLive?: boolean;
   animationPreset?: string;
+  animationConfig?: any;
 };
 
 export default function LivePreview({ item, onClose, onApply }: { item: Item | null; onClose: () => void; onApply: (i: Item) => void }) {
@@ -47,6 +48,7 @@ export default function LivePreview({ item, onClose, onApply }: { item: Item | n
         {item.isLive && (
           <LiveEffect
             preset={preset}
+            intensity={(item.animationConfig?.intensity || "medium") as any}
             quality={settings.quality}
             animationsEnabled={settings.animations}
             particlesEnabled={settings.particles}

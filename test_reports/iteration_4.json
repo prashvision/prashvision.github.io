@@ -1,0 +1,46 @@
+{
+  "summary": "Phase 2 iteration 4 (7 curated presets + per-wallpaper intensity). Backend: 18/18 pytest cases passed on the public EXPO_PUBLIC_BACKEND_URL. Public GET /api/wallpapers returns >=10 wallpapers; the 4 featured demo wallpapers are correctly mapped Mahadev->himalayan, Krishna->river, Ganesh Ji->divineGlow, Temple->temple, each isLive=true with animationConfig.intensity=='medium'; non-live wallpapers all carry animationPreset=='none'. No old preset names (clouds/petals/particles/lightRays/snow/fire) remain in the DB. Admin login + POST /api/admin/uploads (1x1 PNG) returns 200 (NOT 503) and /api/files/{path} serves bytes back byte-identical, and a created live wallpaper with animationPreset='temple' + intensity='high' appears on the public feed with those exact fields. Regression pass: /api/categories, /api/daily-darshan (devanagari), search krishna, /api/admin/dashboard, publish/unpublish, and admin routes reject missing JWT with 401. Frontend: mobile viewport 390x844 loads cleanly with no console errors and no red screen. Home shows hero LIVE badge (badge-live 15 / badge-static 10), Jeevant Darshan · Live row is populated, and the Hindi Daily Darshan card renders. Live wallpaper -> detail-preview -> live-preview-screen renders the animated Temple scene without runtime exceptions. Apply sheet shows apply-dismiss and correctly HIDES apply-open-chooser on web (canApplyNative=false) — copy correctly says the DivyaLive Android build is needed. Profile -> Live Wallpaper Settings shows quality-high/quality-balanced/quality-saver plus toggle-animations and toggle-particles and persists across close/reopen. Admin Studio: admin-login works with seeded creds, toggle-live reveals ALL 7 preset chips (preset-peaceful/temple/himalayan/rain/river/divineGlow/night) AND all 3 intensity chips (intensity-low/medium/high). Creating a wallpaper with preset-himalayan + intensity-high via create-wallpaper (no upload) succeeded and was verified via GET /api/wallpapers (animationPreset='himalayan', animationConfig.intensity='high'); test wallpaper cleaned up.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "web preview", "issues": ["Known RN-Web deprecation warnings ('pointerEvents' and 'shadow*' props) — per handoff note, NOT to be treated as a bug. Cosmetic only."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_iteration4.py",
+    "/app/test_reports/pytest/phase2_iteration4.xml",
+    "/app/test_reports/it4_home.jpeg",
+    "/app/test_reports/it4_livepreview.jpeg",
+    "/app/test_reports/it4_applysheet.jpeg",
+    "/app/test_reports/it4_profile.jpeg",
+    "/app/test_reports/it4_settings.jpeg",
+    "/app/test_reports/it4_admin_presets.jpeg",
+    "/app/test_reports/it4_admin_created.jpeg",
+    "/app/test_reports/it4_categories.jpeg",
+    "/app/test_reports/it4_darshan.jpeg"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py seed() now upserts the four featured demos idempotently — previous stale-Temple issue is resolved and cannot regress from prior test cycles.",
+    "LiveEffect.tsx cleanly encodes the 7 curated presets as compositions of L (particle layers) + overlays with a QUALITY_FACTOR * INTENSITY_FACTOR scale — correct multiplicative behavior.",
+    "AdminStudio.tsx conditionally renders preset AND intensity chips only when toggle-live is ON — matches Phase 2 UX contract.",
+    "Apply sheet on web correctly hides apply-open-chooser (canApplyNative false) and states DivyaLive Android build is needed — intentionally honest, not a bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase2_iteration4.py",
+    "/app/test_reports/iteration_4.json",
+    "/app/test_reports/pytest/phase2_iteration4.xml"
+  ],
+  "success_rate": {"backend": "100% (18/18 pytest)", "frontend": "100% of requested testIDs and flows verified"},
+  "seed_data_creation": "One TEST_it4_ui_wallpaper (himalayan/high) was created via the admin UI, verified in the public feed, then deleted via DELETE /api/admin/wallpapers/{id}. Backend pytest also created and cleaned up TEST_it4_temple_* wallpapers.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL: EXPO_PUBLIC_BACKEND_URL (https://deity-live-launch.preview.emergentagent.com). Admin creds in /app/memory/test_credentials.md. Delete admin uses DELETE /api/admin/wallpapers/{id} (not /api/wallpapers/{id}). Publish/unpublish uses PATCH /api/admin/wallpapers/{id}/publish?published=true|false (query param). AdminStudio preset+intensity chips only render when toggle-live is ON. The 7 curated presets: peaceful, temple, himalayan, rain, river, divineGlow, night. Featured mapping: Mahadev->himalayan, Krishna->river, Ganesh Ji->divineGlow, Temple->temple (all intensity='medium'). Native Android live-wallpaper apply cannot run on Expo Go/web — expected.",
+  "rca_of_issue": "No open bugs. All Phase 2 iteration 4 acceptance criteria pass end-to-end."
+}
