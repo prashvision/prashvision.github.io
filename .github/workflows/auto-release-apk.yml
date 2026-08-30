@@ -3,11 +3,11 @@ name: Auto-Release APK on Version Tag
 on:
   push:
     tags:
-      - 'v*.*.*'  # Trigger on version tags like v1.0.0, v1.1.0, etc.
-  workflow_dispatch:  # Allow manual trigger
+      - 'v*.*.*'  # v1.0.0, v1.1.0 jaise tags par chalega
+  workflow_dispatch:  # Manual trigger ke liye
 
 env:
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '20'
   JAVA_VERSION: '17'
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -35,30 +35,38 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Install Expo CLI & EAS CLI
-        run: npm install -g expo-cli eas-cli
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
 
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm install --legacy-peer-deps
-          ls -la
-
-      - name: Extract version from tag
+      - name: Extract version from tag or fallback
         id: version
         run: |
-          TAG=${{ github.ref }}
-          VERSION=${TAG#refs/tags/}
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="v0.0.0-dev-${GITHUB_SHA::7}"
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "release_date=$(date '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Build Real Android APK (Expo Prebuild + Gradle)
+        working-directory: ./frontend
+        run: |
+          # Native android folder generate karega
+          npx expo prebuild --platform android --clean
+          
+          # Real Release APK compile karega
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          
+          # Artifact folder me copy karega
+          mkdir -p ../../build_artifacts
+          cp app/build/outputs/apk/release/app-release.apk ../../build_artifacts/DivyaLive-${{ steps.version.outputs.version }}.apk
 
       - name: Create Release Notes
         id: notes
@@ -91,20 +99,10 @@ jobs:
           3. Open the APK file to install
           4. Launch DivyaLive from your app drawer
           
-          ## ⚡ Quick Start
-          - Open app and explore 7 wallpaper presets
-          - Try different animation intensities
-          - Use Settings for quality/battery optimization
-          - Test Apply Wallpaper feature
-          
           ## 📋 System Requirements
           - Android 7.0+ (API 24+)
           - Minimum 100MB free storage
           - Recommended: 2GB+ RAM
-          
-          ## 🐛 Known Limitations
-          - Live Wallpaper Service requires device build (not in Expo Go)
-          - Some effects may reduce performance on lower-end devices
           
           ## 🔄 What Changed
           See commit history: https://github.com/${{ github.repository }}/commits/${{ steps.version.outputs.version }}
@@ -112,25 +110,9 @@ jobs:
           ## 📧 Feedback
           Report issues: https://github.com/${{ github.repository }}/issues
           EOF
-          
-          cat release_notes.md
-
-      - name: Build APK with Expo
-        run: |
-          mkdir -p build_artifacts
-          cd frontend
-          echo "Starting Expo build process..."
-          
-          # For EAS Build (requires EAS token)
-          # eas build --platform android --non-interactive
-          
-          # Alternative: Local build simulation
-          echo "✅ APK build process initiated"
-          touch ../build_artifacts/DivyaLive-${{ steps.version.outputs.version }}.apk
-          echo "✅ APK artifact created: DivyaLive-${{ steps.version.outputs.version }}.apk"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: "🚀 DivyaLive ${{ steps.version.outputs.version }}"
@@ -159,9 +141,7 @@ jobs:
     steps:
       - name: Success Notification
         run: |
-          echo "🎉 Release ${{ github.ref_name }} published successfully!"
-          echo "📦 Download: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
-          echo "✅ Users can now install the latest APK"
+          echo "🎉 Release successfully published!"
 
   notify-failure:
     needs: build-and-release
@@ -170,5 +150,4 @@ jobs:
     steps:
       - name: Failure Notification
         run: |
-          echo "❌ Build failed for release ${{ github.ref_name }}"
-          echo "🔍 Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "❌ Build failed for release!"
